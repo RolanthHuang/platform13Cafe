@@ -802,9 +802,9 @@ function createCatKit(THREE, TSL, U = {}) {
   }
 
   // almond / lemon shaped socket carved around each eye (extruded along the eye axis)
-  function eyeCarve(c, q, w, h, depth, k, pinch) {
-    const p = ell(c, [w, h * 1.05, depth], q, k, 'eye');
-    p.kind = K_EYE; p.w = w; p.h = h; p.depth = depth; p.pinch = pinch;
+  function eyeCarve(c, q, w, h, depth, k, pinch, up = 0.97, lo = 1.05) {
+    const p = ell(c, [w, h * Math.max(up, lo), depth], q, k, 'eye');
+    p.kind = K_EYE; p.w = w; p.h = h; p.depth = depth; p.pinch = pinch; p.up = up; p.lo = lo;
     return p;
   }
   // local coordinate scratch filled by evalPrim when wanted
@@ -814,7 +814,7 @@ function createCatKit(THREE, TSL, U = {}) {
       const dx = x - pr.cx, dy = y - pr.cy, dz = z - pr.cz, m = pr.m;
       const lx = m[0] * dx + m[1] * dy + m[2] * dz, ly = m[3] * dx + m[4] * dy + m[5] * dz, lz = m[6] * dx + m[7] * dy + m[8] * dz;
       const xn = lx / pr.w;
-      const hh = pr.h * Math.max(0.08, 1 - pr.pinch * xn * xn) * (ly > 0 ? 0.97 : 1.05);
+      const hh = pr.h * Math.max(0.08, 1 - pr.pinch * xn * xn) * (ly > 0 ? pr.up : pr.lo);
       const ax = xn, ay = ly / hh, bx = lx / (pr.w * pr.w), by = ly / (hh * hh);
       const k0 = Math.sqrt(ax * ax + ay * ay), k1 = Math.sqrt(bx * bx + by * by);
       const d2 = k1 > 1e-12 ? (k0 * (k0 - 1)) / k1 : -hh;
@@ -1119,8 +1119,8 @@ function createCatKit(THREE, TSL, U = {}) {
       E([-0.0118, 0.0150, 0.0265], [0.0085, 0.0050, 0.0080], 0.006),
     ];
     const eyeW = hp.eyeW, eyeH = hp.eyeH;
-    const eyes = [1, -1].map((s) => ({ side: s, c: [s * 0.0176, 0.0045, 0.0270], axis: new Vector3(s * 0.30, 0.03, 1).normalize(), w: eyeW, h: eyeH, slant: 0.17, lidDrop: hp.lidDrop || 0 }));
-    const ears = [1, -1].map((s) => ({ side: s, base: [s * 0.0232, 0.0255, -0.0080], tilt: s * (hp.earTilt ?? 0.44), turn: s * 0.40, lean: -0.10, W: hp.earW, H: hp.earH }));
+    const eyes = [1, -1].map((s) => ({ side: s, c: [s * 0.0176, 0.0045, 0.0270], axis: new Vector3(s * 0.30, 0.03, 1).normalize(), w: eyeW, h: eyeH, slant: hp.eyeSlant ?? 0.17, lidDrop: hp.lidDrop || 0, pinch: hp.eyePinch ?? 0.30, up: hp.lidUp ?? 0.97, lo: hp.lidLo ?? 1.05, depth: hp.eyeDepth ?? 1.13 }));
+    const ears = [1, -1].map((s) => ({ side: s, base: [s * 0.0232, 0.0255, -0.0080], tilt: s * (hp.earTilt ?? 0.44), turn: s * (hp.earTurn ?? 0.40), lean: hp.earLean ?? -0.10, W: hp.earW, H: hp.earH }));
     return { list, eyes, ears, nose: { y: -0.0040, w: 0.0050 }, scale: hp.scale };
   }
 
@@ -1153,7 +1153,7 @@ function createCatKit(THREE, TSL, U = {}) {
         { p: [0, 0.135, 0.066], w: 0.053, hu: 0.053, hd: 0.112 },
         { p: [0, 0.148, 0.098], w: 0.043, hu: 0.044, hd: 0.080 },
       ];
-      const head = { pos: [0, 0.214, 0.160], yaw: 0.36, pitch: -0.14, roll: 0.05 };
+      const head = { pos: [0.012, 0.220, 0.162], yaw: 0.66, pitch: -0.07, roll: 0.0 };
       const legs = [];
       for (const s of [1, -1]) {
         legs.push({ tag: 'fleg', side: s, pts: [[s * 0.030, 0.108, 0.066], [s * 0.043, 0.038, 0.034], [s * 0.035, 0.021, 0.118]], radii: [0.029, 0.0185, 0.0150],
@@ -1296,8 +1296,8 @@ function createCatKit(THREE, TSL, U = {}) {
       const qE = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(exS, eyS, axisC));
       const wS = e.w * S, hS = e.h * S;
       const cc = surf.clone().addScaledVector(axisC, -0.0010 * S).addScaledVector(eyS, -e.lidDrop * S);
-      subs.push(eyeCarve(cc.toArray(), qE, wS, hS, 0.0058 * S, 0.0015 * S, 0.30));
-      return { side: e.side, surf, axis: axisC, ex: exS, ey: eyS, q: qE, w: wS, h: hS, c: cc, R: 0.0102 * S, pinch: 0.30 };
+      subs.push(eyeCarve(cc.toArray(), qE, wS, hS, 0.0058 * S, 0.0015 * S, e.pinch, e.up, e.lo));
+      return { side: e.side, surf, axis: axisC, ex: exS, ey: eyS, q: qE, w: wS, h: hS, c: cc, R: 0.0102 * S, pinch: e.pinch, up: e.up, lo: e.lo, depth: e.depth };
     });
     const f = makeSDF(prims, subs, ground);
     return { rig, hs, S, hq, HM, HI, prims, subs, f, fUnion, eyes, ground };
@@ -1341,7 +1341,7 @@ function createCatKit(THREE, TSL, U = {}) {
       for (const e of eyes) {
         const dx = x - e.c.x, dy = y - e.c.y, dz = z - e.c.z;
         const lx = dx * e.ex.x + dy * e.ex.y + dz * e.ex.z, ly = dx * e.ey.x + dy * e.ey.y + dz * e.ey.z, lz = dx * e.axis.x + dy * e.axis.y + dz * e.axis.z;
-        const xn = lx / e.w, hh = e.h * Math.max(0.08, 1 - e.pinch * xn * xn) * (ly > 0 ? 0.97 : 1.05);
+        const xn = lx / e.w, hh = e.h * Math.max(0.08, 1 - e.pinch * xn * xn) * (ly > 0 ? e.up : e.lo);
         const r = Math.hypot(xn, ly / hh);
         if (r < best) { best = r; lzb = lz; }
       }
@@ -1393,7 +1393,7 @@ function createCatKit(THREE, TSL, U = {}) {
       c = mixc(c, P.bridge, br * 0.9);
       // cream rims around the eyes
       const er = eyeRho(x, y, z);
-      c = mixc(c, P.cream, sstep(1.62, 1.22, er[0]) * sstep(-0.006, -0.001, er[1]) * 0.8);
+      c = mixc(c, P.cream, sstep(1.40, 1.20, er[0]) * sstep(-0.006, -0.001, er[1]) * 0.6);
       c = mixc(c, P.stripe, dark * 0.92);
       c = mixc(c, P.white, clamp(white, 0, 1));
       c = mixc(c, P.dorsal, sstep(0.020, 0.032, hy) * sstep(0.0, -0.03, hz) * 0.35);
@@ -1573,14 +1573,14 @@ function createCatKit(THREE, TSL, U = {}) {
     return g;
   }
 
-  function irisTexture(kind) {
+  function irisTexture(kind, opt = {}) {
     const N = 256, cv = document.createElement('canvas');
     cv.width = cv.height = N;
     const g = cv.getContext('2d');
     const img = g.createImageData(N, N);
     const tabby = kind === 'tabby';
     const inner = tabby ? [206, 186, 84] : [212, 196, 70], outer = tabby ? [150, 162, 72] : [150, 160, 52], limb = tabby ? [58, 66, 34] : [50, 54, 26];
-    const pw = tabby ? 0.125 : 0.15, ph = 0.355;
+    const pw = opt.pupilW ?? (tabby ? 0.125 : 0.15), ph = opt.pupilH ?? 0.355;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const x = (i + 0.5) / N - 0.5, y = (j + 0.5) / N - 0.5;
       const r = Math.hypot(x, y) / 0.5, a = Math.atan2(y, x);
@@ -1593,6 +1593,10 @@ function createCatKit(THREE, TSL, U = {}) {
       c = mixc(c, [6, 7, 6], pupil);
       // darker ring right around the pupil
       c = mixc(c, scalec(c, 0.65), sstep(1.5, 1.05, pr) * (1 - pupil) * 0.6);
+      if (opt.catchlight) { // soft window reflection, upper outer side of the cornea
+        const cl = 1 - sstep(0.035, 0.075, Math.hypot(x + 0.13, y - 0.16));
+        c = mixc(c, [250, 250, 244], cl * opt.catchlight);
+      }
       const o = (j * N + i) * 4;
       img.data[o] = clamp(c[0], 0, 255); img.data[o + 1] = clamp(c[1], 0, 255); img.data[o + 2] = clamp(c[2], 0, 255); img.data[o + 3] = 255;
     }
@@ -1912,8 +1916,9 @@ function createCatKit(THREE, TSL, U = {}) {
 
   /* ---------------------------------------------------------------- build */
   const PRESETS = {
-    tabby: { pose: 'loaf', coat: 'tabby', mirror: 1, chub: 1, h: 0.0021, look: [0.95, 0.60, 1.06],
-      head: { scale: 1.10, cheek: 1.08, jowl: 1.06, muzzle: 1.0, eyeW: 0.0086, eyeH: 0.0067, earW: 0.039, earH: 0.040, lidDrop: 0 } },
+    tabby: { pose: 'loaf', coat: 'tabby', mirror: 1, chub: 1, h: 0.0021, look: [0.95, 0.60, 1.06], track: true, gazeLimit: 0.45,
+      iris: { pupilW: 0.20, pupilH: 0.40, catchlight: 0.7 }, whiskerFwd: 0.62,
+      head: { scale: 1.10, cheek: 1.08, jowl: 1.06, muzzle: 1.0, eyeW: 0.0086, eyeH: 0.0076, eyePinch: 0.15, eyeSlant: 0.13, lidUp: 0.88, lidLo: 1.08, eyeDepth: 1.19, earW: 0.041, earH: 0.043, earTilt: 0.24, earTurn: 0.10, earLean: 0.02, lidDrop: 0 } },
     blackGreen: { pose: 'recline', coat: 'black', mirror: -1, chub: 1.04, h: 0.0021, collar: '#62b59c', look: [-0.46, 0.59, 1.04],
       head: { scale: 1.02, cheek: 1.05, jowl: 1.05, muzzle: 0.98, eyeW: 0.0082, eyeH: 0.0060, earW: 0.042, earH: 0.043, lidDrop: 0.0007 } },
     blackOrange: { pose: 'sprawl', coat: 'black', mirror: 1, chub: 1.2, h: 0.0022, collar: '#e3843a', look: [0.82, 0.71, 1.16], petal: { scale: 1.3, droop: 0.30 },
@@ -1987,20 +1992,30 @@ function createCatKit(THREE, TSL, U = {}) {
       o.quaternion.copy(q);
     }
     // eyes
-    const irisMat = new THREE.MeshPhysicalNodeMaterial({ map: irisTexture(kind), roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.04, specularIntensity: 0.8 });
+    const irisMat = new THREE.MeshPhysicalNodeMaterial({ map: irisTexture(kind, cfg.iris || {}), roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.04, specularIntensity: 0.8 });
     for (const e of A.eyes) {
       const g = eyeGeometry(e.R);
       const o = add(g, irisMat, 'eye', false);
-      const ctr = e.surf.clone().addScaledVector(e.axis, -e.R * 1.13);
-      let q = e.q.clone();
-      if (cfg.look) {
-        const want = V(cfg.look).sub(ctr).normalize();
-        const ang = Math.acos(clamp(want.dot(e.axis), -1, 1)), lim = 0.30;
+      const ctr = e.surf.clone().addScaledVector(e.axis, -e.R * e.depth);
+      const lim = cfg.gazeLimit ?? 0.30;
+      const aim = (target, outQ) => {
+        const want = target.clone().sub(ctr).normalize();
+        const ang = Math.acos(clamp(want.dot(e.axis), -1, 1));
         const dir = ang > lim ? e.axis.clone().lerp(want, lim / ang).normalize() : want;
-        q = new Quaternion().setFromUnitVectors(e.axis, dir).multiply(e.q);
-      }
+        return outQ.setFromUnitVectors(e.axis, dir).multiply(e.q);
+      };
+      const q = cfg.look ? aim(V(cfg.look), new Quaternion()) : e.q.clone();
       o.quaternion.copy(q);
       o.position.copy(ctr);
+      if (cfg.track) { // the eyes follow whoever is looking at her (only when a frame is drawn)
+        const camLocal = new Vector3();
+        o.onBeforeRender = (renderer, scene, camera) => {
+          if (!o.parent) return;
+          o.parent.worldToLocal(camLocal.setFromMatrixPosition(camera.matrixWorld));
+          aim(camLocal, o.quaternion);
+          o.updateMatrixWorld();
+        };
+      }
     }
     // nose leather
     {
@@ -2046,7 +2061,7 @@ function createCatKit(THREE, TSL, U = {}) {
           const hx = s * (0.0072 + k * 0.0026), hy = -0.0148 - r * 0.0028;
           const root = onFace(hx, hy, -0.0004);
           if (!root) continue;
-          const out = new Vector3(s * 1, 0.10 - r * 0.16, 0.42 - k * 0.20 + (rnd() - 0.5) * 0.12).normalize().applyQuaternion(A.hq);
+          const out = new Vector3(s * 1, 0.10 - r * 0.16, (cfg.whiskerFwd ?? 0.42) - k * 0.20 + (rnd() - 0.5) * 0.12).normalize().applyQuaternion(A.hq);
           const down = new Vector3(0, -1, 0).applyQuaternion(A.hq);
           const len = (0.058 + rnd() * 0.018) * S;
           const P0 = V(root), P1 = P0.clone().addScaledVector(out, len * 0.4), P2 = P0.clone().addScaledVector(out, len * 0.75).addScaledVector(down, len * 0.06), P3 = P0.clone().addScaledVector(out, len).addScaledVector(down, len * 0.16);
