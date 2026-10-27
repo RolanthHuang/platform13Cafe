@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform 13 · 店貓檢視</title>
+<style>
+  :root { --ink: #29372e; --paper: #f5f2eb; --line: #d4d6cc; }
+  html, body { margin: 0; height: 100%; background: #e8e9e0; color: var(--ink); font: 14px/1.5 system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  nav { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 4px; background: #f7f5ede8; border-radius: 999px; padding: 6px; box-shadow: 0 10px 30px #17271e1a; }
+  nav button { border: 0; background: transparent; color: inherit; font: inherit; padding: 9px 16px; border-radius: 999px; cursor: pointer; }
+  nav button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  #info { position: fixed; left: 16px; top: 14px; background: #f7f5ede0; border-radius: 10px; padding: 8px 12px; font-size: 12px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.webgpu.js",
+  "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.webgpu.js",
+  "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.tsl.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="info">生成中…</div>
+<nav>
+  <button data-cat="tabby" aria-pressed="true">虎斑白</button>
+  <button data-cat="blackGreen" aria-pressed="false">綠領巾黑貓</button>
+  <button data-cat="blackOrange" aria-pressed="false">橘領巾胖黑貓</button>
+</nav>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import * as TSL from 'three/tsl';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createCatKit } from './cat-kit.js';
+
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+await renderer.init();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#e8e9e0');
+const sun = new THREE.DirectionalLight('#fff0d6', 3.0);
+sun.position.set(-1.2, 2.6, 1.8); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -0.6, right: 0.6, top: 0.6, bottom: -0.6, near: 0.5, far: 6 });
+sun.shadow.bias = -3e-4; sun.shadow.normalBias = 0.02;
+scene.add(sun, new THREE.HemisphereLight('#edf1f0', '#b4a38a', 0.9));
+const floor = new THREE.Mesh(new THREE.CircleGeometry(1.2, 64), new THREE.MeshStandardNodeMaterial({ color: '#8a6342', roughness: 0.75 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.01, 20);
+camera.position.set(0.55, 0.42, 0.75);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.1, 0); controls.enableDamping = true; controls.update();
+
+const kit = createCatKit(THREE, TSL, { mergeGeometries });
+const built = new Map();
+let current = null;
+function show(name) {
+  if (current) scene.remove(current);
+  if (!built.has(name)) {
+    const g = kit.build(name);
+    g.rotation.y = Math.PI; // modelling frame (+z = nose) faces the default camera
+    built.set(name, g);
+  }
+  current = built.get(name);
+  scene.add(current);
+  const u = current.userData;
+  document.getElementById('info').textContent = `${name} · ${u.vertices.toLocaleString()} 頂點 · ${u.strands.toLocaleString()} 細毛 · 生成 ${u.buildMs} ms`;
+  document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === name)));
+}
+document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => show(b.dataset.cat)));
+show('tabby');
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>
