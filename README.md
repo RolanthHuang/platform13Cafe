@@ -1,9 +1,14 @@
 # Platform 13｜十三號月台 · 咖啡館小時光
 
+### ▶ [直接開啟咖啡館](https://rolanthhuang.github.io/platform13Cafe/)　·　[只看三隻店貓](https://rolanthhuang.github.io/platform13Cafe/cats/bench.html)
+
+（約 15 MB，第一次載入需要幾秒；下方選「虎斑／桌下黑貓／桌上黑貓」可直接看貓。）
+
 依照片重建的互動 3D 咖啡館。整個網站是單一檔案 `index.html`（Three.js r186，WebGPU 渲染器、WebGL2 後端），貼圖都內嵌在檔案裡，不需要其他資源。
 
 ## 部署
 
+- **GitHub Pages**：已從 `main` 的根目錄發佈，網址 <https://rolanthhuang.github.io/platform13Cafe/>，推上 `main` 就會更新。
 - **Cloudflare Pages**：上傳 `index.html`（或含它的資料夾／zip）即可。
 - **本機預覽**：在 repo 根目錄執行 `python3 -m http.server`，開 <http://localhost:8000/>。
 
